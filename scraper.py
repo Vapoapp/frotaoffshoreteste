@@ -49,6 +49,41 @@ FOREIGN_TYPE_ORDER = [
     "HLV", "DLV", "RSV", "WSV", "CREW / FSV",
 ]
 
+# Dados históricos semente (antes do pipeline automatizado)
+HISTORICO_SEED = [
+    {"periodo": "1997",     "label": "1997",    "total": 137, "brasileira": 32,  "estrangeira": 105},
+    {"periodo": "2000",     "label": "2000",    "total": 155, "brasileira": 65,  "estrangeira": 90},
+    {"periodo": "2004",     "label": "2004",    "total": 205, "brasileira": 90,  "estrangeira": 115},
+    {"periodo": "2007",     "label": "2007",    "total": 280, "brasileira": 112, "estrangeira": 168},
+    {"periodo": "2010",     "label": "2010",    "total": 400, "brasileira": 200, "estrangeira": 200},
+    {"periodo": "2012",     "label": "2012",    "total": 460, "brasileira": 243, "estrangeira": 217},
+    {"periodo": "2014",     "label": "2014",    "total": 500, "brasileira": 257, "estrangeira": 243},
+    {"periodo": "2016",     "label": "2016",    "total": 386, "brasileira": 311, "estrangeira": 75},
+    {"periodo": "2018",     "label": "2018",    "total": 360, "brasileira": 300, "estrangeira": 60},
+    {"periodo": "2020",     "label": "2020",    "total": 374, "brasileira": 336, "estrangeira": 38},
+    {"periodo": "2021",     "label": "2021",    "total": 393, "brasileira": 361, "estrangeira": 32},
+    {"periodo": "2022",     "label": "2022",    "total": 415, "brasileira": 376, "estrangeira": 39},
+    {"periodo": "2024",     "label": "2024",    "total": 453, "brasileira": 382, "estrangeira": 71},
+]
+
+MESES_PT = {
+    "janeiro": "Jan", "fevereiro": "Fev", "março": "Mar", "marco": "Mar",
+    "abril": "Abr", "maio": "Mai", "junho": "Jun",
+    "julho": "Jul", "agosto": "Ago", "setembro": "Set",
+    "outubro": "Out", "novembro": "Nov", "dezembro": "Dez",
+}
+
+
+def periodo_label(periodo: str) -> str:
+    """Converte 'Fevereiro 2026' → 'Fev/26'."""
+    if not periodo:
+        return periodo
+    m = re.match(r"(\w+)\s+(\d{4})", periodo)
+    if not m:
+        return periodo
+    mes = MESES_PT.get(m.group(1).lower(), m.group(1)[:3])
+    return f"{mes}/{m.group(2)[2:]}"
+
 
 def get_latest_pdf_link() -> dict | None:
     log.info("Verificando página ABEAM...")
@@ -64,6 +99,18 @@ def get_latest_pdf_link() -> dict | None:
     if not links:
         log.warning("Nenhum link de download encontrado.")
         return None
+
+    # Ordena por ano/mês encontrado no texto do link para pegar o mais recente
+    def link_sort_key(a):
+        text = a.get_text()
+        year = re.search(r"20(\d{2})", text)
+        month_map = {m: i for i, m in enumerate(
+            ["janeiro","fevereiro","março","marco","abril","maio","junho",
+             "julho","agosto","setembro","outubro","novembro","dezembro"], 1)}
+        month = next((month_map[k] for k in month_map if k in text.lower()), 0)
+        return (int(year.group(1)) if year else 0, month)
+
+    links.sort(key=link_sort_key)
     latest = links[-1]
     return {"label": latest.get_text(strip=True), "url": latest["href"]}
 
@@ -116,8 +163,9 @@ def extract_period_and_totals(pages: list[str]) -> tuple[str, dict]:
     )
     period = f"{period_match.group(1).capitalize()} {period_match.group(2)}" if period_match else None
 
+    # \d+ aceita qualquer quantidade de dígitos (não mais limitado a 2-3)
     totals_match = re.search(
-        r"(\d{3,})\s+embarca[çc][õo]es,\s*(\d{2,3})\s*\((\d+)%\)\s*de bandeira brasileira\s*e\s*(\d{2,3})\s*\((\d+)%\)\s*de bandeira estrangeira",
+        r"(\d+)\s+embarca[çc][õo]es,\s*(\d+)\s*\((\d+)%\)\s*de bandeira brasileira\s*e\s*(\d+)\s*\((\d+)%\)\s*de bandeira estrangeira",
         text,
         re.IGNORECASE,
     )
@@ -137,9 +185,35 @@ def ints_from_line(line: str) -> list[int]:
     return [int(x) for x in re.findall(r"\d+", line)]
 
 
+def find_page_with_total(pages: list[str], expected_last: int, min_numbers: int) -> str:
+    """Busca dinamicamente a página que contém a linha Total correta."""
+    for page in pages:
+        for line in page.splitlines():
+            if re.match(r"^Total\b", line.strip()):
+                nums = ints_from_line(line)
+                if nums and nums[-1] == expected_last and len(nums) >= min_numbers:
+                    return page
+    raise ValueError(f"Página com linha Total={expected_last} e ≥{min_numbers} colunas não encontrada.")
+
+
+def find_companies_page(pages: list[str]) -> str:
+    """Busca dinamicamente a página com tabela de empresas."""
+    best_page = None
+    best_count = 0
+    for page in pages:
+        count = len([l for l in page.splitlines()
+                     if re.search(r'\b(ABEAM|Não Associado|Nao Associado)\b', l, re.IGNORECASE)])
+        if count > best_count:
+            best_count = count
+            best_page = page
+    if not best_page or best_count < 3:
+        raise ValueError("Página de empresas não encontrada (menos de 3 linhas com status).")
+    return best_page
+
+
 def parse_total_line(page_text: str, expected_last: int, min_numbers: int) -> list[int]:
     for line in page_text.splitlines():
-        if line.startswith("Total"):
+        if re.match(r"^Total\b", line.strip()):
             nums = ints_from_line(line)
             if nums and nums[-1] == expected_last and len(nums) >= min_numbers:
                 return nums
@@ -147,13 +221,15 @@ def parse_total_line(page_text: str, expected_last: int, min_numbers: int) -> li
 
 
 def parse_types(pages: list[str], totals: dict) -> list[dict]:
-    total_counts = parse_total_line(pages[9], totals["total"], 16)[:-1]
+    total_page = find_page_with_total(pages, totals["total"], 16)
+    total_counts = parse_total_line(total_page, totals["total"], 16)[:-1]
     if len(total_counts) != len(TYPE_ORDER):
-        raise ValueError("Contagem total por tipo não bate com o número esperado de colunas.")
+        raise ValueError(f"Contagem total por tipo: esperado {len(TYPE_ORDER)}, obtido {len(total_counts)}.")
 
-    foreign_counts = parse_total_line(pages[14], totals["estrangeira"], 12)[:-1]
+    foreign_page = find_page_with_total(pages, totals["estrangeira"], 12)
+    foreign_counts = parse_total_line(foreign_page, totals["estrangeira"], 12)[:-1]
     if len(foreign_counts) != len(FOREIGN_TYPE_ORDER):
-        raise ValueError("Contagem estrangeira por tipo não bate com o número esperado de colunas.")
+        raise ValueError(f"Contagem estrangeira: esperado {len(FOREIGN_TYPE_ORDER)}, obtido {len(foreign_counts)}.")
 
     total_map = dict(zip(TYPE_ORDER, total_counts))
     foreign_map = {k: 0 for k in TYPE_ORDER}
@@ -166,26 +242,34 @@ def parse_types(pages: list[str], totals: dict) -> list[dict]:
         brazilian = total - foreign
         if brazilian < 0:
             raise ValueError(f"Tipo {t} ficou com bandeira brasileira negativa.")
-        result.append(
-            {
-                "tipo": t,
-                "total": total,
-                "brasileira": brazilian,
-                "estrangeira": foreign,
-                "pct": round(total / totals["total"] * 100, 1),
-            }
-        )
+        result.append({
+            "tipo": t,
+            "total": total,
+            "brasileira": brazilian,
+            "estrangeira": foreign,
+            "pct": round(total / totals["total"] * 100, 1),
+        })
     return result
 
 
 def parse_company_line(line: str) -> dict | None:
-    if line.startswith("Total") or "Empresa Status Total" in line or line.startswith("Bandeira"):
+    line = line.strip()
+    if not line:
         return None
-    m = re.match(r"^(.*?)\s+(ABEAM|Não Associado)\s+((?:\d+\s+){1,2}\d+)\s*$", line)
+    if re.match(r"^(Total|Bandeira|Empresa)", line):
+        return None
+    if "Empresa Status Total" in line:
+        return None
+    # Status flexível: aceita ABEAM, Não Associado e variações
+    m = re.match(
+        r"^(.*?)\s+(ABEAM|N[ãa]o\s+Associado)\s+((?:\d+\s+){1,2}\d+)\s*$",
+        line,
+        re.IGNORECASE,
+    )
     if not m:
         return None
     empresa = m.group(1).strip()
-    status = m.group(2)
+    status = m.group(2).strip()
     nums = [int(x) for x in m.group(3).split()]
     if len(nums) == 2:
         brasileira, total = nums
@@ -195,7 +279,10 @@ def parse_company_line(line: str) -> dict | None:
     else:
         return None
     return {
-        "empresa": empresa.title().replace("Dof / Norskan", "DOF / Norskan").replace("Wsut", "WSUT").replace("Cbo", "CBO"),
+        "empresa": empresa.title()
+            .replace("Dof / Norskan", "DOF / Norskan")
+            .replace("Wsut", "WSUT")
+            .replace("Cbo", "CBO"),
         "status": status,
         "brasileira": brasileira,
         "estrangeira": estrangeira,
@@ -204,8 +291,9 @@ def parse_company_line(line: str) -> dict | None:
 
 
 def parse_companies(pages: list[str], totals: dict) -> tuple[list[dict], int]:
+    companies_page = find_companies_page(pages)
     companies = []
-    for line in pages[5].splitlines():
+    for line in companies_page.splitlines():
         row = parse_company_line(line)
         if row:
             companies.append(row)
@@ -235,12 +323,47 @@ def validate_data(data: dict):
         raise ValueError("Top empresas vazio.")
 
 
+def load_historico() -> list[dict]:
+    """Carrega histórico existente do JSON mais recente, ou retorna semente."""
+    latest = STATIC_DIR / "abeam-latest.json"
+    if latest.exists():
+        try:
+            data = json.loads(latest.read_text(encoding="utf-8"))
+            if data.get("historico"):
+                return data["historico"]
+        except Exception:
+            pass
+    return list(HISTORICO_SEED)
+
+
+def update_historico(historico: list[dict], periodo: str, totals: dict) -> list[dict]:
+    """Adiciona o período atual ao histórico se ainda não existir."""
+    label = periodo_label(periodo)
+    # Verifica se este período já está no histórico (por label ou periodo)
+    for entry in historico:
+        if entry.get("periodo") == periodo or entry.get("label") == label:
+            log.info(f"Período {periodo} já está no histórico.")
+            return historico
+    historico.append({
+        "periodo": periodo,
+        "label": label,
+        "total": totals["total"],
+        "brasileira": totals["brasileira"],
+        "estrangeira": totals["estrangeira"],
+    })
+    log.info(f"Período {periodo} adicionado ao histórico ({len(historico)} entradas).")
+    return historico
+
+
 def extract_data(pdf_path: Path) -> dict:
     log.info(f"Extraindo dados: {pdf_path.name}")
     pages = read_pages(pdf_path)
     period, totals = extract_period_and_totals(pages)
     por_tipo = parse_types(pages, totals)
     top_empresas, empresas_total = parse_companies(pages, totals)
+
+    historico = load_historico()
+    historico = update_historico(historico, period, totals)
 
     data = {
         "source": "ABEAM / Syndarma",
@@ -250,13 +373,15 @@ def extract_data(pdf_path: Path) -> dict:
         "por_tipo": por_tipo,
         "top_empresas": top_empresas,
         "empresas_total": empresas_total,
+        "historico": historico,
     }
     validate_data(data)
     log.info(
-        "Extração concluída: %s · %s embarcações · %s tipos",
+        "Extração concluída: %s · %s embarcações · %s tipos · %s pontos históricos",
         data["periodo"],
         data["totais"]["total"],
         len(data["por_tipo"]),
+        len(data["historico"]),
     )
     return data
 

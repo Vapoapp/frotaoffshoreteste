@@ -496,17 +496,42 @@ function renderEmpresas(data) {
 }
 
 let lineInstance = null;
-function renderHistorico() {
+function renderHistorico(data) {
   const isDark = document.body.classList.contains('dark');
-  const anos  = ['1997','2000','2004','2007','2010','2012','2014','2016','2018','2020','2021','2022','2024','Fev/26'];
-  const total = [137,  155,   205,   280,   400,   460,   500,   386,   360,   374,   393,   415,   453,   481];
-  const brArr = [32,   65,    90,    112,   200,   243,   257,   311,   300,   336,   361,   376,   382,   390];
-  const exArr = [105,  90,    115,   168,   200,   217,   243,   75,    60,    38,    32,    39,    71,    91];
+  const hist = (data.historico && data.historico.length >= 2)
+    ? data.historico
+    : null;
+
+  // Fallback: se o JSON ainda não tem histórico, usa semente embutida
+  const SEED = [
+    {label:'1997',total:137,brasileira:32, estrangeira:105},
+    {label:'2000',total:155,brasileira:65, estrangeira:90},
+    {label:'2004',total:205,brasileira:90, estrangeira:115},
+    {label:'2007',total:280,brasileira:112,estrangeira:168},
+    {label:'2010',total:400,brasileira:200,estrangeira:200},
+    {label:'2012',total:460,brasileira:243,estrangeira:217},
+    {label:'2014',total:500,brasileira:257,estrangeira:243},
+    {label:'2016',total:386,brasileira:311,estrangeira:75},
+    {label:'2018',total:360,brasileira:300,estrangeira:60},
+    {label:'2020',total:374,brasileira:336,estrangeira:38},
+    {label:'2021',total:393,brasileira:361,estrangeira:32},
+    {label:'2022',total:415,brasileira:376,estrangeira:39},
+    {label:'2024',total:453,brasileira:382,estrangeira:71},
+  ];
+
+  const pontos = hist || SEED;
+  const anos   = pontos.map(p => p.label || p.periodo);
+  const total  = pontos.map(p => p.total);
+  const brArr  = pontos.map(p => p.brasileira);
+  const exArr  = pontos.map(p => p.estrangeira);
+
   const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(24,50,72,0.07)';
   const tickColor = isDark ? '#9ab0c2' : '#7f96aa';
   const c1 = isDark ? '#7F77DD' : '#534AB7';
   const c2 = isDark ? '#1D9E75' : '#0F6E56';
   const c3 = isDark ? '#EF9F27' : '#BA7517';
+  const maxY = Math.ceil(Math.max(...total) / 50) * 50 + 50;
+
   if (lineInstance) lineInstance.destroy();
   lineInstance = new Chart(document.getElementById('lineChart'), {
     type: 'line',
@@ -523,7 +548,7 @@ function renderHistorico() {
       plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: ctx=>`${ctx.dataset.label}: ${ctx.parsed.y}` } } },
       scales:{
         x:{ grid:{color:gridColor}, ticks:{color:tickColor, font:{size:11}, maxRotation:45, autoSkip:false} },
-        y:{ grid:{color:gridColor}, ticks:{color:tickColor, font:{size:11}}, min:0, max:560 }
+        y:{ grid:{color:gridColor}, ticks:{color:tickColor, font:{size:11}}, min:0, max:maxY }
       }
     }
   });
@@ -557,7 +582,7 @@ async function init() {
     renderDonut(data);
     renderTipos(data);
     renderEmpresas(data);
-    renderHistorico();
+    renderHistorico(data);
     renderOportunidades(data);
 
     // Re-renderiza gráficos ao trocar tema (cores mudam)
@@ -566,7 +591,7 @@ async function init() {
         renderDonut(data);
         renderTipos(data);
         renderEmpresas(data);
-        renderHistorico();
+        renderHistorico(data);
       }, 50);
     });
   } catch(e) {
