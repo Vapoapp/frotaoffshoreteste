@@ -57,7 +57,7 @@ HISTORICO_SEED = [
     {"periodo": "2007",     "label": "2007",    "total": 280, "brasileira": 112, "estrangeira": 168},
     {"periodo": "2010",     "label": "2010",    "total": 400, "brasileira": 200, "estrangeira": 200},
     {"periodo": "2012",     "label": "2012",    "total": 460, "brasileira": 243, "estrangeira": 217},
-    {"periodo": "2014",     "label": "2014",    "total": 500, "brasileira": 257, "estrangeira": 243},
+    {"periodo": "2014",     "label": "2014",    "total": 500, "brasileira": 247, "estrangeira": 253},
     {"periodo": "2016",     "label": "2016",    "total": 386, "brasileira": 311, "estrangeira": 75},
     {"periodo": "2018",     "label": "2018",    "total": 360, "brasileira": 300, "estrangeira": 60},
     {"periodo": "2020",     "label": "2020",    "total": 374, "brasileira": 336, "estrangeira": 38},
