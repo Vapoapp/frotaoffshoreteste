@@ -1,6 +1,6 @@
 {
   "source": "ABEAM / Syndarma",
-  "extracted": "2026-03-29T17:00:07.634147",
+  "extracted": "2026-03-29T17:08:33.557328",
   "periodo": "Fevereiro 2026",
   "totais": {
     "total": 481,
@@ -235,8 +235,8 @@
       "periodo": "2014",
       "label": "2014",
       "total": 500,
-      "brasileira": 257,
-      "estrangeira": 243
+      "brasileira": 247,
+      "estrangeira": 253
     },
     {
       "periodo": "2016",
