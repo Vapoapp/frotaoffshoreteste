@@ -325,8 +325,8 @@
     </div>
 
     <div class="panel">
-      <div class="panel-title">Evolução histórica da frota (1997–2026)</div>
-      <div class="panel-insight">A frota ainda não recuperou o pico de 2014. A bandeira estrangeira chegou à mínima histórica de 32 embarcações em 2021, e está em recuperação — chegando a 91 em fev/2026.</div>
+      <div class="panel-title">Evolução histórica da frota (1997–atual)</div>
+      <div class="panel-insight" id="historico-insight"></div>
       <div class="line-legend">
         <div class="line-leg-item"><div class="line-leg-bar" style="background:var(--purple)"></div>Frota total</div>
         <div class="line-leg-item"><div class="line-leg-bar" style="background:var(--teal)"></div>Bandeira brasileira</div>
@@ -394,14 +394,27 @@ async function loadData() {
   return r.json();
 }
 
+function calcHistStats(data) {
+  const hist = (data.historico && data.historico.length >= 2) ? data.historico : null;
+  if (!hist) return null;
+  const peak    = hist.reduce((a, b) => b.total > a.total ? b : a);
+  const minEx   = hist.reduce((a, b) => b.estrangeira < a.estrangeira ? b : a);
+  const maxEx   = hist.reduce((a, b) => b.estrangeira > a.estrangeira ? b : a);
+  const current = hist[hist.length - 1];
+  const quedaPct = Math.round((maxEx.estrangeira - current.estrangeira) / maxEx.estrangeira * 100);
+  return { peak, minEx, maxEx, current, quedaPct };
+}
+
 function renderMetrics(data) {
   const { totais, por_tipo } = data;
+  const hs = calcHistStats(data);
+  const quedaSub = hs ? `queda de ~${hs.quedaPct}% vs ${hs.maxEx.label||hs.maxEx.periodo}` : 'bandeira estrangeira';
   const cards = [
-    { label:'Total de embarcações', value: totais.total,       sub: 'frota ativa no Brasil',                color:'#534AB7', pct: 100 },
-    { label:'Bandeira brasileira',  value: totais.brasileira,  sub: `${totais.pct_brasileira}% da frota`,   color:'#0F6E56', pct: totais.pct_brasileira },
-    { label:'Bandeira estrangeira', value: totais.estrangeira, sub: 'queda de ~70% vs 2015',                color:'#BA7517', pct: 100 - totais.pct_brasileira },
+    { label:'Total de embarcações', value: totais.total,       sub: 'frota ativa no Brasil',              color:'#534AB7', pct: 100 },
+    { label:'Bandeira brasileira',  value: totais.brasileira,  sub: `${totais.pct_brasileira}% da frota`, color:'#0F6E56', pct: totais.pct_brasileira },
+    { label:'Bandeira estrangeira', value: totais.estrangeira, sub: quedaSub,                             color:'#BA7517', pct: 100 - totais.pct_brasileira },
     { label:'Tipo dominante',       value: por_tipo[0]?.tipo || 'PSV',
-      sub: `${por_tipo[0]?.total} unidades · ${por_tipo[0]?.pct}%`,                                         color:'#993C1D', pct: por_tipo[0]?.pct || 42 },
+      sub: `${por_tipo[0]?.total} unidades · ${por_tipo[0]?.pct}%`,                                       color:'#993C1D', pct: por_tipo[0]?.pct || 42 },
   ];
   document.getElementById('metrics-row').innerHTML = cards.map(c => `
     <div class="metric">
@@ -416,8 +429,11 @@ function renderMetrics(data) {
 function renderBandeira(data) {
   const { totais } = data;
   const pctBR = totais.pct_brasileira, pctEX = 100 - pctBR;
-  document.getElementById('bandeira-insight').textContent =
-    'O Brasil reduziu embarcações estrangeiras em ~70% desde 2015 — resultado direto da Lei 9.432/97.';
+  const hs = calcHistStats(data);
+  const bandeiraInsight = hs
+    ? `O Brasil reduziu embarcações estrangeiras em ~${hs.quedaPct}% desde ${hs.maxEx.label||hs.maxEx.periodo} — resultado direto da Lei 9.432/97.`
+    : 'O Brasil reduziu embarcações estrangeiras após 2015 — resultado direto da Lei 9.432/97.';
+  document.getElementById('bandeira-insight').textContent = bandeiraInsight;
   document.getElementById('flag-track').innerHTML = `
     <div class="flag-seg" style="width:${pctBR}%;background:#0F6E56;color:#d1fae5">${pctBR}%</div>
     <div class="flag-seg" style="width:${pctEX}%;background:#BA7517;color:#fef3c7">${pctEX}%</div>
@@ -531,6 +547,22 @@ function renderHistorico(data) {
   const c2 = isDark ? '#1D9E75' : '#0F6E56';
   const c3 = isDark ? '#EF9F27' : '#BA7517';
   const maxY = Math.ceil(Math.max(...total) / 50) * 50 + 50;
+
+  // Insight dinâmico
+  const hs = calcHistStats(data);
+  if (hs) {
+    const atual = hs.current;
+    const recovering = atual.estrangeira > hs.minEx.estrangeira;
+    const abovePeak  = atual.total >= hs.peak.total;
+    let txt = abovePeak
+      ? `A frota atingiu novo recorde: ${atual.total} embarcações em ${atual.label||atual.periodo}.`
+      : `A frota ainda não recuperou o pico de ${hs.peak.total} em ${hs.peak.label||hs.peak.periodo}.`;
+    txt += ` A bandeira estrangeira chegou à mínima de ${hs.minEx.estrangeira} em ${hs.minEx.label||hs.minEx.periodo}`;
+    txt += recovering
+      ? ` e está em recuperação — chegando a ${atual.estrangeira} em ${atual.label||atual.periodo}.`
+      : ` e segue próxima da mínima histórica.`;
+    document.getElementById('historico-insight').textContent = txt;
+  }
 
   if (lineInstance) lineInstance.destroy();
   lineInstance = new Chart(document.getElementById('lineChart'), {
