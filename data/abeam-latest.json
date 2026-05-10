@@ -1,6 +1,6 @@
 {
   "source": "ABEAM / Syndarma",
-  "extracted": "2026-05-05T11:57:55.673216",
+  "extracted": "2026-03-27T16:25:39.026694",
   "periodo": "Fevereiro 2026",
   "totais": {
     "total": 481,
@@ -187,105 +187,5 @@
       "total": 15
     }
   ],
-  "empresas_total": 47,
-  "historico": [
-    {
-      "periodo": "1997",
-      "label": "1997",
-      "total": 137,
-      "brasileira": 32,
-      "estrangeira": 105
-    },
-    {
-      "periodo": "2000",
-      "label": "2000",
-      "total": 155,
-      "brasileira": 65,
-      "estrangeira": 90
-    },
-    {
-      "periodo": "2004",
-      "label": "2004",
-      "total": 205,
-      "brasileira": 90,
-      "estrangeira": 115
-    },
-    {
-      "periodo": "2007",
-      "label": "2007",
-      "total": 280,
-      "brasileira": 112,
-      "estrangeira": 168
-    },
-    {
-      "periodo": "2010",
-      "label": "2010",
-      "total": 400,
-      "brasileira": 200,
-      "estrangeira": 200
-    },
-    {
-      "periodo": "2012",
-      "label": "2012",
-      "total": 460,
-      "brasileira": 243,
-      "estrangeira": 217
-    },
-    {
-      "periodo": "2014",
-      "label": "2014",
-      "total": 500,
-      "brasileira": 247,
-      "estrangeira": 253
-    },
-    {
-      "periodo": "2016",
-      "label": "2016",
-      "total": 386,
-      "brasileira": 311,
-      "estrangeira": 75
-    },
-    {
-      "periodo": "2018",
-      "label": "2018",
-      "total": 360,
-      "brasileira": 300,
-      "estrangeira": 60
-    },
-    {
-      "periodo": "2020",
-      "label": "2020",
-      "total": 374,
-      "brasileira": 336,
-      "estrangeira": 38
-    },
-    {
-      "periodo": "2021",
-      "label": "2021",
-      "total": 393,
-      "brasileira": 361,
-      "estrangeira": 32
-    },
-    {
-      "periodo": "2022",
-      "label": "2022",
-      "total": 415,
-      "brasileira": 376,
-      "estrangeira": 39
-    },
-    {
-      "periodo": "2024",
-      "label": "2024",
-      "total": 453,
-      "brasileira": 382,
-      "estrangeira": 71
-    },
-    {
-      "periodo": "Fevereiro 2026",
-      "label": "Fev/26",
-      "total": 481,
-      "brasileira": 390,
-      "estrangeira": 91
-    }
-  ]
+  "empresas_total": 47
 }
